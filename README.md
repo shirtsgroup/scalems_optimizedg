@@ -1,2 +1,2 @@
 # scalems_optimizedg
-Files for test of optimizing dg
+Files for test of optimizing dg and other examples
