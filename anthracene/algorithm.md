@@ -53,3 +53,7 @@ over time. We will come up with better ways to show this graphically.
 
 
 We will come up with better versions to show this eventually.
+
+`choosing_lambda.ipynb` is a notebook that describes the algorithm to select new states
+based on the variance measured so far.
+
