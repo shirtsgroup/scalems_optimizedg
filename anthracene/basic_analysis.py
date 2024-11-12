@@ -7,9 +7,12 @@ from alchemlyb.visualisation import (plot_convergence, plot_mbar_overlap_matrix,
 from alchemlyb.convergence import forward_backward_convergence
 import os
 from alchemlyb.parsing import gmx
+import numpy as np
+import scipy
 import pandas as pd
 import argparse
 import sys
+import pdb
 
 # Setup argparser
 #def parse_arguments():
@@ -182,3 +185,64 @@ with open(os.path.join(analysis_dir, 'free_energy_analysis.csv'), 'w') as f:
     endpoint_df.to_csv(f, index=False)
 with open(os.path.join(analysis_dir, 'full_table.csv'), 'w') as f:
     full_table_df.to_csv(f, index=False)
+
+####
+# Perform error analysis to choose new states:
+dHdl = combined_dhdl_data
+dHdl = dHdl.sort_index(level=dHdl.index.names[1:])
+variances = np.square(dHdl.groupby(level=dHdl.index.names[1:]).sem())
+
+nlam = 11  # initial number of lambda
+ninit = 10000  # initial number of samples
+lambdas = np.linspace(0,1,nlam) # initial lambdas
+nsamples = ninit*np.ones(nlam)
+
+# If we are missing some of the data, we can just spline without it, and if we are missing
+# edges, we set them equal to the neighbors.  That is a very rough but
+# reasonable guess to start with, we will get better soon.
+
+fit_var = scipy.interpolate.CubicSpline(lambdas,nsamples*variances.values[:,0])
+
+def expected_variance(nsamps,lambdas,varfunc,components=False):
+    nonzero_locs = (nsamps!=0)
+    dlambda = np.diff(lambdas[nonzero_locs])
+    wlambda = np.zeros(len(dlambda)+1)
+    wlambda[1:] += dlambda
+    wlambda[:-1] += dlambda
+    wlambda *= 0.5
+    vals = varfunc(lambdas[nonzero_locs])*(wlambda**2/nsamps[nonzero_locs])
+    vsum = np.sum(vals)
+    if components==False:
+        return vsum
+    else:
+        return vsum,vals
+
+# initially we have ninit points at all locations.
+ntotal = 101
+lamall = np.linspace(0,1,ntotal)
+nall = np.zeros([ntotal])
+for i in range(ntotal):
+    if (i%10 == 0):
+        nall[i] = ninit
+
+num_new_runs = 10
+runlocs = np.zeros(num_new_runs)
+runmins = np.zeros(num_new_runs)
+for i in range(num_new_runs):
+    expect_current = expected_variance(nsamps=nall,lambdas=lamall,varfunc=fit_var)
+    min_i = 0
+    min_trial = expect_current
+    for j in range(ntotal):
+        ntrial = nall.copy()
+        ntrial[j] += ninit
+        # if we add more samples here, how much does it improve the uncertainty
+        expect_trial = expected_variance(nsamps=ntrial,lambdas=lamall, varfunc=fit_var)
+        if expect_trial < min_trial:   # OK, this currently the lowest point
+            min_j = j
+            min_trial = expect_trial
+    # OK we have found the location the minimizes the next place. Change nall
+    nall[min_j] += ninit
+    runlocs[i] = min_j
+    runmins[i] = min_trial
+
+print("new lambdas to run at:", runlocs)
