@@ -193,8 +193,9 @@ dHdl = dHdl.sort_index(level=dHdl.index.names[1:])
 variances = np.square(dHdl.groupby(level=dHdl.index.names[1:]).sem())
 
 nlam = 11  # initial number of lambda
-ninit = 10000  # initial number of samples
-lambdas = np.linspace(0,1,nlam) # initial lambdas
+ninit = 10000  # initial number of samples - this is the length of the simulation in number of entries in dhdl.
+               # it doesn't really matter if all simulations are the same length, since we always add one unit at a time.
+lambdas = np.linspace(0,1,nlam) # initial lambdas we are using.
 nsamples = ninit*np.ones(nlam)
 
 # If we are missing some of the data, we can just spline without it, and if we are missing
